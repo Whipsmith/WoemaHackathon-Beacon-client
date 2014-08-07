@@ -18,8 +18,9 @@ import butterknife.OnClick;
 
 public class Home extends Activity {
 
-    private Runnable wsRunnable;
     private Thread wsThread;
+
+    public static volatile boolean threadStop = false;
 
     private BluetoothAdapter mBluetoothAdapter;
     private static final int REQUEST_ENABLE_BT = 1;
@@ -28,7 +29,7 @@ public class Home extends Activity {
     private int postInterval = 1000;
 
     private boolean scan;
-    private boolean post;
+    private volatile boolean post;
 
     /**
      * Called when the activity is first created.
@@ -40,16 +41,24 @@ public class Home extends Activity {
 
         ButterKnife.inject(this);
 
-        wsRunnable = new Runnable() {
+        Runnable wsRunnable = new Runnable() {
 
-            volatile boolean threadShouldRun = true;
             @Override
             public void run() {
                 while (true) {
-                    if (Thread.currentTread().isInterrupted()) {
+                    if (threadStop) {
                         break;
                     }
-                    post = !post;
+
+                    Runnable r = new Runnable() {
+                        @Override
+                        public void run() {
+                            post = !post;
+                            Log.i("post flip", String.valueOf(post));
+                        }
+                    };
+                    runOnUiThread(r);
+
                     try {
                         Thread.sleep(postInterval);
                     } catch (InterruptedException e) {
@@ -58,9 +67,7 @@ public class Home extends Activity {
                 }
             }
 
-            public void kill(){
-                threadShouldRun = false;
-            }
+
         };
 
         wsThread = new Thread(wsRunnable);
@@ -89,20 +96,19 @@ public class Home extends Activity {
     protected void onResume() {
         super.onResume();
         if (!mBluetoothAdapter.isEnabled()) {
-            if (!mBluetoothAdapter.isEnabled()) {
-                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            }
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
 
     }
 
     private void startPostTimer(boolean start) {
-        if (start) {
+        if (start  && wsThread.isAlive()) {
+            threadStop = false;
             wsThread.start();
         } else {
-            wsRunnable
+            threadStop = true;
         }
 
     }
