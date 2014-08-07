@@ -1,0 +1,64 @@
+http://beaconservice.azurewebsites.net/
+------------
+GET api/Location?device={device} (Device optional)
+
+Returns:
+{
+"longitude": 1.1,
+"latitude": 2.1
+}
+---------------
+POST api/Location
+
+REQUEST:
+{
+"MyDeviceId": "sample string 1",
+"Beacons": [
+{
+"BeaconId": "sample string 1",
+"Rssi": 2
+},
+{
+"BeaconId": "sample string 1",
+"Rssi": 2
+}
+]
+}
+
+RETURNS:
+The request
+BeaconService.azurewebsites.net <http://BeaconService.azurewebsites.net>
+
+DB
+Username: beacon
+Password: Beacon123
+——
+http://beaconservice.azurewebsites.net/
+
+GET api/Location?device={device} (Device optional)
+
+Returns:
+{
+“X”: 1,
+“Y”: 2
+}
+
+POST api/Location
+
+REQUEST:
+{
+"MyDeviceId": "sample string 1",
+"Beacons": [
+{
+"BeaconId": "sample string 1",
+"Rssi": 2
+},
+{
+"BeaconId": "sample string 1",
+"Rssi": 2
+}
+]
+}
+
+RETURNS:
+The request

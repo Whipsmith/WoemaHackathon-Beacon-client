@@ -2,11 +2,14 @@ package com.example.WoemaBeacon;
 
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 import butterknife.ButterKnife;
@@ -15,12 +18,17 @@ import butterknife.OnClick;
 
 public class Home extends Activity {
 
-    private Handler btHandler;
-    private Handler wsHandler;
+    private Runnable wsRunnable;
+    private Thread wsThread;
 
     private BluetoothAdapter mBluetoothAdapter;
+    private static final int REQUEST_ENABLE_BT = 1;
+
+//    1 second post interval
+    private int postInterval = 1000;
 
     private boolean scan;
+    private boolean post;
 
     /**
      * Called when the activity is first created.
@@ -32,8 +40,30 @@ public class Home extends Activity {
 
         ButterKnife.inject(this);
 
-        btHandler = new Handler();
-        wsHandler = new Handler();
+        wsRunnable = new Runnable() {
+
+            volatile boolean threadShouldRun = true;
+            @Override
+            public void run() {
+                while (true) {
+                    if (Thread.currentTread().isInterrupted()) {
+                        break;
+                    }
+                    post = !post;
+                    try {
+                        Thread.sleep(postInterval);
+                    } catch (InterruptedException e) {
+                        post = false;
+                    }
+                }
+            }
+
+            public void kill(){
+                threadShouldRun = false;
+            }
+        };
+
+        wsThread = new Thread(wsRunnable);
 
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, R.string.ble_not_supported, Toast.LENGTH_SHORT).show();
@@ -58,21 +88,74 @@ public class Home extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (!mBluetoothAdapter.isEnabled()) {
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+        }
 
+
+    }
+
+    private void startPostTimer(boolean start) {
+        if (start) {
+            wsThread.start();
+        } else {
+            wsRunnable
+        }
+
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // User chose not to enable Bluetooth.
+        if (requestCode == REQUEST_ENABLE_BT && resultCode == Activity.RESULT_CANCELED) {
+            finish();
+            return;
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     @OnClick(R.id.startbutton)
     public void startClick() {
-        scan = true;
-        initiateScan();
+        if (!scan) {
+            scan = true;
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+            startPostTimer(true);
+        }
+
     }
 
-    private void initiateScan() {
 
-    }
 
     @OnClick(R.id.stopbutton)
     public void stopClick() {
-        scan = false;
+        if (scan) {
+            scan = false;
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+            startPostTimer(false);
+        }
+
     }
+
+    private BluetoothAdapter.LeScanCallback mLeScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, final int rssi, byte[] scanRecord) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.i("LeScanCallBack",
+                                    String.format("Device name:[%s], RSSI:[%d], Address[%s], DeviceType[%s], Device.toString:[%s]"
+                                            , device.getName()
+                                            , rssi,device.getAddress()
+                                            , device.getBluetoothClass().toString()
+                                            , device.toString())
+                            );
+                        }
+                    });
+                }
+            };
 }
